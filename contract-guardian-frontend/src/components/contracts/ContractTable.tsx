@@ -1,0 +1,8 @@
+import type { Contract } from '../../types';
+import { currency,shortDate } from '../../domain/contracts';
+import { ContractIdentity,StatusBadge } from './ContractIdentity';
+import { Icon } from '../ui/Icon';
+
+export function ContractTable({contracts,full=false,onSelect,onSort}:{contracts:Contract[];full?:boolean;onSelect:(contract:Contract)=>void;onSort?:(sort:'date'|'value')=>void}) {
+  return <div className="table-scroll"><table className={full?'contracts-table':''}><thead><tr><th>Empresa / Contrato</th><th className="category-column">Categoria</th><th className="end-column">{full?<button className="sort-header" onClick={()=>onSort?.('date')}>Fim da vigência <Icon name="sort"/></button>:'Vencimento'}</th><th className="amount-column">{full?<button className="sort-header" onClick={()=>onSort?.('value')}>Valor mensal <Icon name="sort"/></button>:'Valor mensal'}</th><th className="status-column">Status</th>{full&&<th aria-label="Ações"/>}</tr></thead><tbody>{contracts.map(contract=><tr key={contract.id} onClick={()=>onSelect(contract)}><td onClick={e=>e.stopPropagation()}><ContractIdentity contract={contract} onSelect={onSelect}/></td><td className="category-column category-text">{contract.category}</td><td className="end-column">{shortDate(contract.end)}</td><td className="amount-column">{currency(contract.monthly)}</td><td className="status-column"><StatusBadge contract={contract}/></td>{full&&<td><button className="icon-btn" onClick={e=>{e.stopPropagation();onSelect(contract);}} aria-label={`Ver detalhes de ${contract.company}`}><Icon name="more"/></button></td>}</tr>)}</tbody></table></div>;
+}

@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "./workspace.css";
+@import "./auth.css";
+@import "./contract-form.css";
+@import "./users.css";
+
+@theme {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-heading: 'Manrope', sans-serif;
+  --color-guardian-lime: #c1f66b;
+}
+
+@layer base {
+  :root { font-synthesis: none; text-rendering: optimizeLegibility; }
+  body { @apply m-0 min-w-[320px] antialiased; }
+}

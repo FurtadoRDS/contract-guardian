@@ -1,0 +1,9 @@
+import type { Contract } from '../../types';
+import { contractStatus } from '../../domain/contracts';
+import { Icon } from '../ui/Icon';
+
+export function contractCounts(contracts:Contract[]){return {total:contracts.length,active:contracts.filter(contract=>contractStatus(contract)==='Ativo').length,pending:contracts.filter(contract=>contractStatus(contract)==='Pendente').length,expired:contracts.filter(contract=>contractStatus(contract)==='Expirado').length};}
+export function ContractStats({contracts}:{contracts:Contract[]}) {
+  const counts=contractCounts(contracts);
+  return <div className="stats-grid"><article className="stat-card"><div className="stat-head">Total de contratos<span className="stat-icon"><Icon name="file"/></span></div><div className="stat-number">{String(counts.total).padStart(2,'0')}</div><div className="stat-foot"><span>{counts.total?'Registros cadastrados na carteira':'Sua carteira começa aqui'}</span></div></article><article className="stat-card lime-stat"><div className="stat-head">Contratos ativos<span className="stat-icon"><Icon name="circleCheck"/></span></div><div className="stat-number">{String(counts.active).padStart(2,'0')}</div><div className="stat-foot"><strong>{counts.total?Math.round(counts.active/counts.total*100):0}%</strong><span>da sua carteira</span></div></article><article className="stat-card warning"><div className="stat-head">Contratos pendentes<span className="stat-icon"><Icon name="clock"/></span></div><div className="stat-number">{String(counts.pending).padStart(2,'0')}</div><div className="stat-foot"><span>Assinatura ou início pendente</span></div></article><article className="stat-card expired"><div className="stat-head">Contratos expirados<span className="stat-icon"><Icon name="expired"/></span></div><div className="stat-number">{String(counts.expired).padStart(2,'0')}</div><div className="stat-foot"><span>Contratos com vigência encerrada</span></div></article></div>;
+}

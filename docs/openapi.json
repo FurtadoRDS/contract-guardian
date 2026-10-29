@@ -1,0 +1,3907 @@
+{
+  "openapi": "3.1.1",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Contract Guardian — proposta de API de backend",
+    "version": "1.0.0",
+    "description": "Contrato proposto para o frontend React existente, sem backend implementado. Base /api; aplicação de uma única empresa. 17 operações essenciais e 8 opcionais (x-priority). Não existe login social, isPreview, endpoint público do primeiro master, DELETE de contrato ou limpeza global da produção. O servidor estabelece empresa, autoria, perfis e horários. Toda escrita exige X-CSRF-Token obtido de GET /session, inclusive rotas públicas. Ativação e recuperação exigem novas telas futuras."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Base relativa proposta para o backend da implantação."
+    }
+  ],
+  "security": [
+    {
+      "cookieSession": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sessão"
+    },
+    {
+      "name": "Acessos"
+    },
+    {
+      "name": "Auditoria"
+    },
+    {
+      "name": "Contratos"
+    },
+    {
+      "name": "Documentos"
+    },
+    {
+      "name": "Ativação"
+    },
+    {
+      "name": "Recuperação"
+    },
+    {
+      "name": "Indicadores"
+    },
+    {
+      "name": "Exportação"
+    },
+    {
+      "name": "Preferências"
+    }
+  ],
+  "paths": {
+    "/session": {
+      "get": {
+        "operationId": "getSession",
+        "tags": [
+          "Sessão"
+        ],
+        "summary": "Consultar sessão e obter token CSRF",
+        "description": "Bootstrap público: 200 com user=null para visitante anônimo. Fornece csrfToken e cria contexto de sessão anônima quando necessário. Impedir cache de dados de sessão.",
+        "x-priority": "required",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Sessão atual ou visitante anônimo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SessionBootstrapData"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Cookie __Host-guardian_session com Secure; HttpOnly; Path=/ e sem Domain; SameSite apropriado à implantação. Não retornar credenciais em JSON.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSession",
+        "tags": [
+          "Sessão"
+        ],
+        "summary": "Entrar com e-mail e senha",
+        "description": "Exige X-CSRF-Token do bootstrap. Login somente para acesso aprovado com credentialStatus=activated. Retornar 401 genérico para credenciais inválidas, conta não autorizada ou não ativada. Renovar identificador da sessão e token CSRF; personas de prévia não são aceitas. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sessão autenticada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AuthenticatedSessionData"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Cookie __Host-guardian_session com Secure; HttpOnly; Path=/ e sem Domain; SameSite apropriado à implantação. Não retornar credenciais em JSON.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSession",
+        "tags": [
+          "Sessão"
+        ],
+        "summary": "Sair e revogar sessão",
+        "description": "Idempotente inclusive sem usuário autenticado; exige contexto/token CSRF válido do bootstrap. Revogar sessão do servidor e expirar cookie. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sessão encerrada ou já inexistente, sem corpo.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Cookie __Host-guardian_session com Secure; HttpOnly; Path=/ e sem Domain; SameSite apropriado à implantação. Não retornar credenciais em JSON.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/access-requests": {
+      "get": {
+        "operationId": "listAccessRequests",
+        "tags": [
+          "Acessos"
+        ],
+        "summary": "Listar solicitações de acesso",
+        "description": "Ordenar createdAt DESC com desempate estável por id. meta.counts contém totais globais por status antes dos filtros; meta.total contém total filtrado.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Solicitações da empresa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccessRequest"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/RequestsMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitAccessRequest",
+        "tags": [
+          "Acessos"
+        ],
+        "summary": "Solicitar acesso corporativo",
+        "description": "Empresa de destino resolvida por configuração confiável do servidor. Não cria senha nem concede acesso. Recusar solicitação pendente duplicada ou usuário já ativo. Após rejeição, nova solicitação é permitida. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Solicitação pendente registrada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccessRequestReceipt"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/access-requests/{requestId}/review": {
+      "post": {
+        "operationId": "reviewAccessRequest",
+        "tags": [
+          "Acessos"
+        ],
+        "summary": "Aprovar ou recusar solicitação",
+        "description": "Somente pending pode mudar. Aprovação cria reader com status=active e credentialStatus=pending_activation. Solicitação, usuário e auditoria são gravados atomicamente. reviewedBy/approvedBy e horários vêm do servidor. Revisão já concluída retorna 409 STALE_REQUEST, inclusive sob concorrência. Agendar convite de forma durável; falha no envio não desfaz aprovação confirmada. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "description": "Solicitação da empresa.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decisão, usuário (null na recusa) e evento da transação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ReviewResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "listUsers",
+        "tags": [
+          "Acessos"
+        ],
+        "summary": "Listar usuários aprovados e perfis",
+        "description": "Ordenar approvedAt DESC, incluindo bootstrap sem aprovação de forma estável. meta.counts.active/masters são globais antes dos filtros. credentialStatus distingue aprovação de ativação. counts.masters pode contar todos os aprovados com perfil master; essa contagem visual é distinta da proteção LAST_MASTER, que exige credencial activated.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuários da empresa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccessUser"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/UsersMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/users/{userId}/role": {
+      "patch": {
+        "operationId": "changeUserRole",
+        "tags": [
+          "Acessos"
+        ],
+        "summary": "Alterar explicitamente perfil de usuário",
+        "description": "reader↔master por segunda ação explícita. Impedir SELF_DEMOTION, LAST_MASTER e ROLE_UNCHANGED (409), inclusive sob concorrência. Verificar perfil vigente e registrar role.changed na mesma transação. Responsável obtido da sessão. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID. Para LAST_MASTER, contar somente status=active com credentialStatus=activated: pending_activation não substitui o último administrador operacional.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "Usuário da empresa.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleChangeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Usuário com perfil atualizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccessUser"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/audit": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "tags": [
+          "Auditoria"
+        ],
+        "summary": "Consultar auditoria de decisões e permissões",
+        "description": "Somente leitura. Ordenar createdAt DESC com desempate estável. Buscar pessoa, ação, responsável, motivo e IDs. Não existem endpoints para editar/excluir eventos.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "access.approved",
+                "access.rejected",
+                "role.changed"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eventos imutáveis da empresa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AuditEvent"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/contracts": {
+      "get": {
+        "operationId": "listContracts",
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Consultar contratos com filtros e paginação",
+        "description": "Status derivado com meta.referenceDate em America/Sao_Paulo: Expirado se end<referenceDate; caso contrário Pendente se signature!=Assinado ou start>referenceDate; senão Ativo. Restringir dados à empresa da sessão. Em q, comparar CNPJ com pontuação/máscara removida e letras normalizadas em maiúsculas, preservando o formato alfanumérico.",
+        "x-priority": "required",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Ativo",
+                "Pendente",
+                "Expirado"
+              ]
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Categoria exata; lista aberta."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_desc",
+                "end_asc",
+                "monthly_desc"
+              ],
+              "default": "created_desc"
+            }
+          },
+          {
+            "name": "endFrom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Término mínimo inclusivo."
+          },
+          {
+            "name": "endTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Término máximo inclusivo. Não pode anteceder endFrom."
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contratos autorizados e data de referência dos cálculos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Contract"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createContract",
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Cadastrar contrato revisado pelo master",
+        "description": "Validar datas, valores e campos. signature é manual e obrigatória. id/createdAt/version=1/apresentação são gerados no servidor. analysisId opcional deve pertencer à empresa e estar vigente; vincular metadados confiáveis do arquivo. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contrato criado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contract"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/contracts/{contractId}": {
+      "get": {
+        "operationId": "getContract",
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Consultar detalhe de contrato",
+        "description": "",
+        "x-priority": "required",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "parameters": [
+          {
+            "name": "contractId",
+            "in": "path",
+            "required": true,
+            "description": "Contrato da empresa.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contrato e data de referência em São Paulo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contract"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ReferenceMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateContract",
+        "tags": [
+          "Contratos"
+        ],
+        "summary": "Editar contrato com controle de versão",
+        "description": "Mesclar apenas campos enviados e validar o registro completo resultante. Comparar version e incrementar atomicamente; divergência retorna 409 VERSION_CONFLICT. Rejeitar null, corpo sem alteração e campos gerados. Assinatura nunca é alterada pela análise. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "name": "contractId",
+            "in": "path",
+            "required": true,
+            "description": "Contrato da empresa.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contrato salvo com versão incrementada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contract"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/contracts/analyze": {
+      "post": {
+        "operationId": "analyzeContractDocument",
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Enviar documento para análise assíncrona",
+        "description": "Validar upload antes da fila: PDF, JPG/JPEG ou TXT, entre 1 e 10.485.760 bytes. Detectar formato pelo conteúdo e verificar empresa e limites. 202 não significa extração concluída. A análise não cria contrato nem confirma assinatura. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Upload validado e job criado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnalysisJob"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpload"
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, image/jpeg, text/plain"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/document-analyses/{analysisId}": {
+      "get": {
+        "operationId": "getDocumentAnalysis",
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Consultar andamento e resultado da análise",
+        "description": "Consultar até succeeded/failed com intervalo/recuo adequado. Job de outra empresa retorna 404. expiresAt limita resultado e vínculo temporário; falha de OCR retorna failed, sem campos inventados.",
+        "x-priority": "required",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "name": "analysisId",
+            "in": "path",
+            "required": true,
+            "description": "Job da própria empresa.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado atual do job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AnalysisJob"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/account-activations/validate": {
+      "post": {
+        "operationId": "validateAccountActivation",
+        "tags": [
+          "Ativação"
+        ],
+        "summary": "Validar token de ativação sem consumir",
+        "description": "Nova tela ainda não existente no frontend. Token apenas no corpo JSON, nunca no path. Validação não ativa conta nem consome token. Token inválido/expirado/usado retorna 422. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivationValidationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token válido para ativação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ActivationValidationResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/account-activations": {
+      "post": {
+        "operationId": "activateAccount",
+        "tags": [
+          "Ativação"
+        ],
+        "summary": "Definir senha inicial e ativar credencial aprovada",
+        "description": "Nova tela ainda não existente. Consumir token de uso único atomicamente e ativar credencial de usuário aprovado. Não criar sessão automática. Token e senha somente no JSON, nunca em logs, paths ou respostas. Token inválido/expirado/usado retorna 422. Primeiro master por comando/migração restrita, sem endpoint público. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "required",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Credencial ativada; entrar pela tela de login."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/password-resets": {
+      "post": {
+        "operationId": "requestPasswordReset",
+        "tags": [
+          "Recuperação"
+        ],
+        "summary": "Solicitar recuperação de senha",
+        "description": "Fluxo complementar com nova tela futura. Retornar 202 genérico independentemente da existência do e-mail. Entregar token por canal corporativo verificado, com agendamento durável. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "optional",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Pedido recebido; resposta genérica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GenericAccepted"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/password-resets/confirm": {
+      "post": {
+        "operationId": "confirmPasswordReset",
+        "tags": [
+          "Recuperação"
+        ],
+        "summary": "Consumir token e definir nova senha",
+        "description": "Token de uso único apenas no corpo; inválido/expirado/usado retorna 422. Redefinir senha e revogar sessões existentes, sem autenticação automática. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "optional",
+        "x-roles": [
+          "public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Senha redefinida e sessões revogadas."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/dashboard/summary": {
+      "get": {
+        "operationId": "getDashboardSummary",
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Obter indicadores agregados do dashboard",
+        "description": "Opcional: pode ser calculado no frontend somente com carteira completa. Counts usam toda a carteira autorizada. expiring contém contratos Ativo cujo término ocorre entre referenceDate e referenceDate+alertDays, inclusive.",
+        "x-priority": "optional",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "parameters": [
+          {
+            "name": "alertDays",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                7,
+                15,
+                30,
+                60,
+                90
+              ],
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indicadores e vencimentos próximos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DashboardSummary"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/reports/financial": {
+      "get": {
+        "operationId": "getFinancialReport",
+        "tags": [
+          "Indicadores"
+        ],
+        "summary": "Obter consolidação financeira anual",
+        "description": "Alternativa ao cálculo local com carteira completa. Por mês, somar mensalidade integral de contratos Assinado com qualquer sobreposição, sem rateio diário. comparison usa mês equivalente do ano anterior. activeMonthlyCost soma contratos ativos em referenceDate; annualizedCost=activeMonthlyCost×12. monthlyVariation é percentual e null sem base anterior positiva. averageMonthlyCost=soma mensal dos contratos Ativo hoje/quantidade de ativos (zero sem ativos). monthlyVariation compara o mês atual com o anterior na série assinada de sobreposição integral; null se base anterior<=0; janeiro compara dezembro anterior. Esses KPIs usam referenceDate, mesmo com year histórico.",
+        "x-priority": "optional",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9999
+            },
+            "description": "Ano completo; default é o ano de referenceDate."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relatório anual e séries comparativas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FinancialReport"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/contracts/export": {
+      "get": {
+        "operationId": "exportContractsCsv",
+        "tags": [
+          "Exportação"
+        ],
+        "summary": "Exportar contratos correspondentes aos filtros",
+        "description": "Todos os registros autorizados dos filtros/ordenação, independentemente da paginação da interface. UTF-8 com BOM, ponto e vírgula e CRLF. Escapar aspas/quebras e neutralizar fórmulas de planilha. Sem page/pageSize. A busca q por CNPJ usa a mesma normalização de máscara/pontuação e letras maiúsculas da listagem.",
+        "x-priority": "optional",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Ativo",
+                "Pendente",
+                "Expirado"
+              ]
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Categoria exata; lista aberta."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_desc",
+                "end_asc",
+                "monthly_desc"
+              ],
+              "default": "created_desc"
+            }
+          },
+          {
+            "name": "endFrom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Término mínimo inclusivo."
+          },
+          {
+            "name": "endTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Término máximo inclusivo. Não pode anteceder endFrom."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV de contratos.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=guardian-contratos-YYYY-MM-DD.csv"
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/audit/export": {
+      "get": {
+        "operationId": "exportAuditCsv",
+        "tags": [
+          "Exportação"
+        ],
+        "summary": "Exportar auditoria filtrada completa",
+        "description": "Todos os eventos autorizados dos filtros, sem page/pageSize. UTF-8 com BOM, ponto e vírgula e CRLF; preservar autor, horário ISO, motivos e perfis; neutralizar fórmulas de planilha.",
+        "x-priority": "optional",
+        "x-roles": [
+          "master"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "access.approved",
+                "access.rejected",
+                "role.changed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV de eventos.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=guardian-historico-acessos-YYYY-MM-DD.csv"
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/me/preferences": {
+      "get": {
+        "operationId": "getMyPreferences",
+        "tags": [
+          "Preferências"
+        ],
+        "summary": "Consultar preferências pessoais",
+        "description": "Opcional: a interface pode manter preferências no navegador. Não representa configuração corporativa nem permissão. Defaults: theme=dark, alerts=true, alertDays=30.",
+        "x-priority": "optional",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "responses": {
+          "200": {
+            "description": "Preferências do usuário autenticado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Preferences"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMyPreferences",
+        "tags": [
+          "Preferências"
+        ],
+        "summary": "Atualizar preferências pessoais",
+        "description": "PATCH parcial não vazio, sem null, somente do usuário autenticado. alerts controla avisos na interface; não implica envio de e-mail ou push. Token CSRF ausente/inválido ou origem inválida retorna 403 CSRF_INVALID.",
+        "x-priority": "optional",
+        "x-roles": [
+          "master",
+          "reader"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferências atualizadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Preferences"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-guardian_session",
+        "description": "Sessão no servidor; cookie Secure/HttpOnly/Path=/ sem Domain. Perfil vigente validado a cada operação; persona de prévia não aceita."
+      }
+    },
+    "parameters": {
+      "CsrfToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "description": "Token vinculado ao contexto de sessão retornado por GET /session. Obrigatório em POST/PATCH/DELETE, inclusive públicas. Validar origem; ausência/falha do token ou origem inválida retorna 403 CSRF_INVALID.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "PageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Search": {
+        "name": "q",
+        "in": "query",
+        "required": false,
+        "description": "Busca sem distinção de maiúsculas/minúsculas ou acentos, compatível com a interface atual. Em contratos, a busca por CNPJ normaliza máscara/pontuação e maiúsculas, sem descartar letras do identificador.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "Role": {
+        "type": "string",
+        "enum": [
+          "master",
+          "reader"
+        ]
+      },
+      "Actor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "SessionUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "organizationId"
+        ],
+        "additionalProperties": false
+      },
+      "SessionBootstrapData": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SessionUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "csrfToken": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "user",
+          "csrfToken"
+        ],
+        "additionalProperties": false
+      },
+      "AuthenticatedSessionData": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/SessionUser"
+          },
+          "csrfToken": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "user",
+          "csrfToken"
+        ],
+        "additionalProperties": false
+      },
+      "LoginInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "AccessRequestInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "department": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "department",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "description": "Aplicar trim. Não aceitar senha, perfil, status, empresa ou responsável."
+      },
+      "AccessRequestReceipt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "const": "pending"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AccessRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "department": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "\\S"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewedBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Actor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejectionReason": {
+            "type": "string",
+            "maxLength": 1500
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "department",
+          "reason",
+          "status",
+          "createdAt",
+          "reviewedAt",
+          "reviewedBy",
+          "rejectionReason"
+        ],
+        "additionalProperties": false
+      },
+      "AccessUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "department": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "status": {
+            "const": "active"
+          },
+          "requestId": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvedBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Actor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialStatus": {
+            "type": "string",
+            "enum": [
+              "pending_activation",
+              "activated"
+            ]
+          },
+          "credentialActivatedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "department",
+          "role",
+          "status",
+          "requestId",
+          "approvedAt",
+          "approvedBy",
+          "credentialStatus",
+          "credentialActivatedAt"
+        ],
+        "additionalProperties": false,
+        "description": "requestId/approvedAt/approvedBy podem ser null no master de bootstrap. active significa acesso aprovado; login exige credentialStatus=activated."
+      },
+      "AuditDetails": {
+        "type": "object",
+        "properties": {
+          "fromRole": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "toRole": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1500
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromRole",
+          "toRole",
+          "reason",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "access.approved",
+              "access.rejected",
+              "role.changed"
+            ]
+          },
+          "targetId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "targetName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "targetEmail": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "$ref": "#/components/schemas/AuditDetails"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "targetId",
+          "targetName",
+          "targetEmail",
+          "actor",
+          "createdAt",
+          "details"
+        ],
+        "additionalProperties": false,
+        "description": "Registro imutável escrito pelo servidor; actor e createdAt vêm da sessão e do relógio do servidor."
+      },
+      "ReviewInput": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1500
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "decision": {
+                  "const": "rejected"
+                }
+              },
+              "required": [
+                "decision"
+              ]
+            },
+            "then": {
+              "required": [
+                "reason"
+              ],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1500,
+                  "pattern": "\\S"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ReviewResult": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/AccessRequest"
+          },
+          "user": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AccessUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "auditEvent": {
+            "$ref": "#/components/schemas/AuditEvent"
+          }
+        },
+        "required": [
+          "request",
+          "user",
+          "auditEvent"
+        ],
+        "additionalProperties": false
+      },
+      "RoleChangeInput": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "Contractor": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "cnpj": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 14,
+            "pattern": "^[A-Z0-9]{12}[0-9]{2}$",
+            "description": "CNPJ canônico sem máscara, primeiras 12 posições alfanuméricas A-Z/0-9 e duas posições de DV numéricas. Também aceita CNPJ numérico legado. Validar dígitos verificadores conforme Receita Federal. O frontend atual ainda remove letras e valida apenas dígitos; sua máscara/validação precisará de adequação antes de aceitar o formato alfanumérico. Nunca armazenar CNPJ como number.",
+            "externalDocs": {
+              "description": "Receita Federal — perguntas e respostas sobre CNPJ alfanumérico",
+              "url": "https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf"
+            }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Matriz",
+              "Filial"
+            ]
+          },
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "name",
+          "cnpj",
+          "type",
+          "city"
+        ],
+        "additionalProperties": false
+      },
+      "Provider": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "cnpj": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 14,
+            "pattern": "^[A-Z0-9]{12}[0-9]{2}$",
+            "description": "CNPJ canônico sem máscara, primeiras 12 posições alfanuméricas A-Z/0-9 e duas posições de DV numéricas. Também aceita CNPJ numérico legado. Validar dígitos verificadores conforme Receita Federal. O frontend atual ainda remove letras e valida apenas dígitos; sua máscara/validação precisará de adequação antes de aceitar o formato alfanumérico. Nunca armazenar CNPJ como number.",
+            "externalDocs": {
+              "description": "Receita Federal — perguntas e respostas sobre CNPJ alfanumérico",
+              "url": "https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf"
+            }
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S",
+            "description": "Categoria aberta; não restringir à lista da interface."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "name",
+          "cnpj",
+          "category",
+          "email",
+          "phone"
+        ],
+        "additionalProperties": false
+      },
+      "PartialContractor": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "cnpj": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 14,
+            "pattern": "^[A-Z0-9]{12}[0-9]{2}$",
+            "description": "CNPJ canônico sem máscara, primeiras 12 posições alfanuméricas A-Z/0-9 e duas posições de DV numéricas. Também aceita CNPJ numérico legado. Validar dígitos verificadores conforme Receita Federal. O frontend atual ainda remove letras e valida apenas dígitos; sua máscara/validação precisará de adequação antes de aceitar o formato alfanumérico. Nunca armazenar CNPJ como number.",
+            "externalDocs": {
+              "description": "Receita Federal — perguntas e respostas sobre CNPJ alfanumérico",
+              "url": "https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf"
+            }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Matriz",
+              "Filial"
+            ]
+          },
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "PartialProvider": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "cnpj": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 14,
+            "pattern": "^[A-Z0-9]{12}[0-9]{2}$",
+            "description": "CNPJ canônico sem máscara, primeiras 12 posições alfanuméricas A-Z/0-9 e duas posições de DV numéricas. Também aceita CNPJ numérico legado. Validar dígitos verificadores conforme Receita Federal. O frontend atual ainda remove letras e valida apenas dígitos; sua máscara/validação precisará de adequação antes de aceitar o formato alfanumérico. Nunca armazenar CNPJ como number.",
+            "externalDocs": {
+              "description": "Receita Federal — perguntas e respostas sobre CNPJ alfanumérico",
+              "url": "https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf"
+            }
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S",
+            "description": "Categoria aberta; não restringir à lista da interface."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "\\S"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "SourceDocument": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "image/jpeg",
+              "text/plain"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10485760
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "ContractCreate": {
+        "type": "object",
+        "properties": {
+          "contractor": {
+            "$ref": "#/components/schemas/Contractor"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S",
+            "description": "Categoria aberta; limite proposto para integração."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "end": {
+            "type": "string",
+            "format": "date"
+          },
+          "monthly": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "signature": {
+            "type": "string",
+            "enum": [
+              "Assinado",
+              "Pendente",
+              "Em revisão"
+            ],
+            "description": "Confirmação manual do master; nunca inferida pela análise."
+          },
+          "renewal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "pattern": "\\S"
+          },
+          "analysisId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opcional. Job autorizado e vigente da mesma empresa, com upload validado. Pode ter falhado na extração; vincular metadados confiáveis do arquivo sem inventar campos."
+          }
+        },
+        "required": [
+          "contractor",
+          "provider",
+          "category",
+          "scope",
+          "start",
+          "end",
+          "monthly",
+          "total",
+          "signature",
+          "renewal"
+        ],
+        "additionalProperties": false,
+        "description": "17 campos de negócio obrigatórios agrupados em contratante, contratada e contrato. end>=start. Não aceitar campos gerados de apresentação, autoria, status ou metadados de arquivo do cliente."
+      },
+      "ContractPatch": {
+        "type": "object",
+        "properties": {
+          "contractor": {
+            "$ref": "#/components/schemas/PartialContractor",
+            "minProperties": 1
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PartialProvider",
+            "minProperties": 1
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S",
+            "description": "Categoria aberta; limite proposto para integração."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "end": {
+            "type": "string",
+            "format": "date"
+          },
+          "monthly": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "signature": {
+            "type": "string",
+            "enum": [
+              "Assinado",
+              "Pendente",
+              "Em revisão"
+            ],
+            "description": "Confirmação manual do master; nunca inferida pela análise."
+          },
+          "renewal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "pattern": "\\S"
+          },
+          "analysisId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opcional. Job autorizado e vigente da mesma empresa, com upload validado. Pode ter falhado na extração; vincular metadados confiáveis do arquivo sem inventar campos."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Versão conhecida; comparar atomicamente ao salvar."
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "additionalProperties": false,
+        "minProperties": 2,
+        "description": "PATCH parcial: mesclar contractor/provider campo a campo, preservar omitidos e rejeitar null. Exige version e ao menos uma alteração real; validar o contrato completo resultante."
+      },
+      "Contract": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "company": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140,
+            "pattern": "\\S"
+          },
+          "initials": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "color": {
+            "type": "string",
+            "description": "Token de apresentação gerado pelo servidor/adaptador compatível."
+          },
+          "contractor": {
+            "$ref": "#/components/schemas/Contractor"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S",
+            "description": "Categoria aberta; limite proposto para integração."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "end": {
+            "type": "string",
+            "format": "date"
+          },
+          "monthly": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "signature": {
+            "type": "string",
+            "enum": [
+              "Assinado",
+              "Pendente",
+              "Em revisão"
+            ],
+            "description": "Confirmação manual do master; nunca inferida pela análise."
+          },
+          "renewal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "pattern": "\\S"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date",
+            "description": "Data de criação YYYY-MM-DD para compatibilidade com frontend; horários de auditoria permanecem separados."
+          },
+          "sourceDocument": {
+            "$ref": "#/components/schemas/SourceDocument"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "company",
+          "initials",
+          "color",
+          "contractor",
+          "provider",
+          "category",
+          "scope",
+          "start",
+          "end",
+          "monthly",
+          "total",
+          "signature",
+          "renewal",
+          "createdAt",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentExtractedFields": {
+        "type": "object",
+        "properties": {
+          "contractor": {
+            "$ref": "#/components/schemas/PartialContractor"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PartialProvider"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "\\S",
+            "description": "Categoria aberta; limite proposto para integração."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "start": {
+            "type": "string",
+            "format": "date"
+          },
+          "end": {
+            "type": "string",
+            "format": "date"
+          },
+          "monthly": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0.01,
+            "multipleOf": 0.01,
+            "description": "BRL em unidade monetária, sem formatação; persistir com precisão decimal."
+          },
+          "renewal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500,
+            "pattern": "\\S"
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "description": "Campos sem evidência devem ser omitidos; não inventar valores. signature não é permitido (additionalProperties=false)."
+      },
+      "DocumentAnalysisResult": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "$ref": "#/components/schemas/DocumentExtractedFields"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "AnalysisError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "AnalysisJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "processing",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "file": {
+            "$ref": "#/components/schemas/SourceDocument"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DocumentAnalysisResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "file",
+          "createdAt",
+          "updatedAt",
+          "expiresAt",
+          "result",
+          "error"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "succeeded"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "$ref": "#/components/schemas/DocumentAnalysisResult"
+                },
+                "error": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "result": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "failed"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "error": {
+                  "$ref": "#/components/schemas/AnalysisError"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "error": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ],
+        "description": "Resultado somente em succeeded; erro somente em failed. Análise não salva contrato nem infere assinatura."
+      },
+      "DocumentUpload": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "x-min-size-bytes": 1,
+            "x-max-size-bytes": 10485760,
+            "description": "Um PDF, JPG/JPEG ou TXT, entre 1 e 10.485.760 bytes. Verificar conteúdo real, não apenas extensão ou MIME informado."
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "additionalProperties": false
+      },
+      "ActivationValidationInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "additionalProperties": false
+      },
+      "ActivationInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "writeOnly": true
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true,
+            "description": "Política inicial proposta: 12 a 128 caracteres."
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "ActivationValidationResult": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "const": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "valid",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "PasswordResetInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 180,
+            "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+            "description": "Normalizar com trim e minúsculas no servidor."
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "PasswordResetConfirmation": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "writeOnly": true
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ],
+        "additionalProperties": false
+      },
+      "GenericAccepted": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Mensagem idêntica para conta existente ou inexistente."
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "ReferenceMeta": {
+        "type": "object",
+        "properties": {
+          "referenceDate": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "referenceDate"
+        ],
+        "additionalProperties": false
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "referenceDate": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "totalPages",
+          "referenceDate"
+        ],
+        "additionalProperties": false
+      },
+      "RequestsMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "referenceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "pending": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "approved": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rejected": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "pending",
+              "approved",
+              "rejected"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "totalPages",
+          "referenceDate",
+          "counts"
+        ],
+        "additionalProperties": false
+      },
+      "UsersMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "referenceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "masters": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "active",
+              "masters"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "totalPages",
+          "referenceDate",
+          "counts"
+        ],
+        "additionalProperties": false
+      },
+      "Preferences": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "enum": [
+              "dark",
+              "light"
+            ],
+            "default": "dark"
+          },
+          "alerts": {
+            "type": "boolean",
+            "default": true
+          },
+          "alertDays": {
+            "type": "integer",
+            "enum": [
+              7,
+              15,
+              30,
+              60,
+              90
+            ],
+            "default": 30
+          }
+        },
+        "required": [
+          "theme",
+          "alerts",
+          "alertDays"
+        ],
+        "additionalProperties": false
+      },
+      "PreferencesPatch": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "enum": [
+              "dark",
+              "light"
+            ]
+          },
+          "alerts": {
+            "type": "boolean"
+          },
+          "alertDays": {
+            "type": "integer",
+            "enum": [
+              7,
+              15,
+              30,
+              60,
+              90
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "minProperties": 1
+      },
+      "DashboardSummary": {
+        "type": "object",
+        "properties": {
+          "referenceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expired": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "total",
+              "active",
+              "pending",
+              "expired"
+            ],
+            "additionalProperties": false
+          },
+          "activeMonthlyCost": {
+            "type": "number",
+            "minimum": 0,
+            "multipleOf": 0.01
+          },
+          "expiring": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contract"
+            }
+          },
+          "alertDays": {
+            "type": "integer",
+            "enum": [
+              7,
+              15,
+              30,
+              60,
+              90
+            ]
+          }
+        },
+        "required": [
+          "referenceDate",
+          "counts",
+          "activeMonthlyCost",
+          "expiring",
+          "alertDays"
+        ],
+        "additionalProperties": false
+      },
+      "MonthlyPoint": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0,
+            "multipleOf": 0.01
+          },
+          "comparison": {
+            "type": "number",
+            "minimum": 0,
+            "multipleOf": 0.01
+          },
+          "projected": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "month",
+          "label",
+          "value",
+          "comparison",
+          "projected"
+        ],
+        "additionalProperties": false
+      },
+      "FinancialReport": {
+        "type": "object",
+        "properties": {
+          "referenceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "activeMonthlyCost": {
+            "type": "number",
+            "minimum": 0,
+            "multipleOf": 0.01,
+            "description": "Soma de monthly dos contratos Ativo em referenceDate; KPI atual, independente de year."
+          },
+          "annualizedCost": {
+            "type": "number",
+            "minimum": 0,
+            "multipleOf": 0.01,
+            "description": "activeMonthlyCost × 12; KPI atual, independente de year."
+          },
+          "averageMonthlyCost": {
+            "type": "number",
+            "minimum": 0,
+            "multipleOf": 0.01,
+            "description": "Soma de monthly dos contratos Ativo em referenceDate dividida pela quantidade desses contratos; zero quando não há ativos."
+          },
+          "monthlyVariation": {
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Percentual entre série assinada do mês atual e do mês anterior, ambos com sobreposição integral. null se base anterior<=0. Janeiro compara com dezembro do ano anterior. KPI atual, independente de year."
+          },
+          "costByCategory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "\\S"
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": 0,
+                  "multipleOf": 0.01
+                }
+              },
+              "required": [
+                "category",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "series": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "items": {
+              "$ref": "#/components/schemas/MonthlyPoint"
+            }
+          }
+        },
+        "required": [
+          "referenceDate",
+          "year",
+          "activeMonthlyCost",
+          "annualizedCost",
+          "averageMonthlyCost",
+          "monthlyVariation",
+          "costByCategory",
+          "series"
+        ],
+        "additionalProperties": false,
+        "description": "Doze meses completos do ano. comparison usa o mesmo mês do ano anterior. Sem rateio diário; meses futuros são projeções. monthlyVariation é percentual ou null sem base anterior positiva. KPIs activeMonthlyCost/annualizedCost/averageMonthlyCost/monthlyVariation são atuais (referenceDate), mesmo quando year consulta histórico."
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              },
+              "requestId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Requisição malformada.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Sessão ausente/expirada ou credenciais inválidas; mensagem sem revelar existência da conta.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "FORBIDDEN para perfil autenticado sem permissão; CSRF_INVALID para token CSRF ausente/inválido ou origem inválida em escrita.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Recurso inexistente ou não pertencente à empresa autorizada.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflito de estado, duplicidade ou versão desatualizada.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "Arquivo excede 10.485.760 bytes.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "Tipo de arquivo não permitido.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "Falha de validação ou token inválido, expirado ou já utilizado.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Limite de tentativas ou uso excedido.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "headers": {
+          "Retry-After": {
+            "description": "Segundos até nova tentativa ou data HTTP.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Falha interna, sem detalhes sensíveis na resposta.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Serviço temporariamente indisponível.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-status": "proposal-not-implemented",
+  "x-timezone": "America/Sao_Paulo",
+  "x-currency": "BRL"
+}

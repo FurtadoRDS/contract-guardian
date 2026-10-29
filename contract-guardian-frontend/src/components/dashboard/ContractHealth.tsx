@@ -1,0 +1,9 @@
+import type { Contract } from '../../types';
+import { contractCounts } from './ContractStats';
+import { Icon } from '../ui/Icon';
+
+export function ContractHealth({contracts,onExplore,onHelp}:{contracts:Contract[];onExplore:()=>void;onHelp:()=>void}) {
+  const counts=contractCounts(contracts),total=Math.max(counts.total,1),length=2*Math.PI*65;
+  const segments=[{name:'Ativos',count:counts.active,color:'var(--lime)'},{name:'Pendentes',count:counts.pending,color:'#d9b476'},{name:'Expirados',count:counts.expired,color:'#65717e'}];let offset=0;
+  return <section className="panel health-panel"><div className="panel-header health-head"><div><h2>Saúde dos contratos</h2><p>Sua carteira em um só lugar.</p></div><button className="icon-btn" onClick={onHelp} aria-label="Como os status são calculados"><Icon name="info"/></button></div><div className="health-chart"><svg className="donut" viewBox="0 0 160 160" role="img" aria-label={`${counts.active} contratos ativos, ${counts.pending} pendentes e ${counts.expired} expirados`}><circle cx={80} cy={80} r={65} stroke="var(--panel-2)"/>{segments.map(segment=>{const dash=Math.max(0,segment.count/total*length-5),segmentOffset=offset;offset+=segment.count/total*length;return <circle key={segment.name} cx={80} cy={80} r={65} stroke={segment.color} strokeDasharray={`${dash} ${length-dash}`} strokeDashoffset={-segmentOffset}/>;})}</svg><div className="donut-center"><strong>{counts.total}</strong><span>total de contratos</span></div></div><div className="health-legend">{segments.map(segment=><div className="health-row" key={segment.name}><i className="legend-dot" style={{background:segment.color}}/>{segment.name}<strong>{String(segment.count).padStart(2,'0')}</strong><small>{Math.round(segment.count/total*100)}%</small></div>)}</div><button className="health-link" onClick={onExplore}>Explorar todos os contratos <Icon name="arrowUpRight"/></button></section>;
+}
