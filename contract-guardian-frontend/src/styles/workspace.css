@@ -12,6 +12,17 @@
 .workspace-preview-bar{@apply flex items-center justify-between;min-height:34px;padding:7px 31px;border-bottom:1px solid #3c482b;background:#20271b;color:#a2b18f;gap:12px;font-size:10px;}.workspace-preview-bar>span,.workspace-preview-bar>button{@apply flex items-center;gap:6px;}.workspace-preview-bar .icon{@apply shrink-0;width:13px;height:13px;}.workspace-preview-bar button{color:#c1f66b;font-size:10px;padding:0;}.chart-empty{@apply flex flex-col items-center justify-center text-center;min-height:230px;gap:10px;padding:22px;color:var(--muted);}.chart-empty>.icon{width:35px;height:35px;color:var(--lime);opacity:.7;}.chart-empty h3{color:var(--soft);font-size:12px;}.chart-empty p{font-size:10px;max-width:260px;line-height:1.8;}.chart-empty .btn{margin-top:6px;font-size:10px;min-height:33px;}.recent-empty{min-height:290px;}.recent-empty p{max-width:290px;margin:auto;line-height:1.8;}.auth-mode .skip-link{@apply hidden;}.notification-panel{top:96px;}.workspace-switch .workspace-icon .icon{width:18px;height:18px;}.profile-name{@apply overflow-hidden whitespace-nowrap;text-overflow:ellipsis;max-width:120px;}.nav-item[data-route=users]{font-size:11px;gap:9px;}.sidebar .nav-item[data-action=help]>.icon:last-child{width:13px;margin-left:auto;}body[data-theme=light] .workspace-preview-bar{background:#e9f1df;border-color:#d5e1c6;color:#697e51;}body[data-theme=light] .workspace-preview-bar button{color:#527526;}
 @media(max-width:620px){.workspace-preview-bar{padding:7px 15px;font-size:8px;gap:7px;}.workspace-preview-bar button{@apply whitespace-nowrap;font-size:8px;}.workspace-preview-bar .icon{width:11px;height:11px;}.notification-panel{top:90px;}}
 @media(max-width:620px){.stat-spark{top:57px;width:49px;height:30px;}.stat-foot{font-size:8px;}.chart-summary{gap:5px;}.chart-value{font-size:26px;}.chart-legend{gap:7px;}.chart-label{font-size:9px;}.chart-change{font-size:8px;}.chart-wrap{margin-top:16px;}}
+/* Keep identity and account visible while the navigation scrolls on short screens. */
+.sidebar{height:100dvh;overflow:hidden;}
+.sidebar>.brand,.sidebar>.workspace-switch,.sidebar>.profile{flex-shrink:0;}
+.sidebar-content{@apply flex flex-col min-h-0 flex-1 overflow-y-auto overflow-x-hidden;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
+.sidebar-content>nav,.sidebar-content>.sidebar-bottom{flex-shrink:0;}
+.sidebar-content:focus-visible{outline:1px solid var(--lime);outline-offset:-1px;border-radius:7px;}
+.sidebar-content .nav-item:focus-visible{outline-offset:-2px;}
+.sidebar>.profile .icon-btn{flex-shrink:0;}
+@media(max-height:540px){.sidebar{padding-top:14px;}.sidebar>.brand{padding-bottom:15px;}.sidebar>.workspace-switch{margin-bottom:16px;}.sidebar-content .nav-separator{height:16px;}}
+/* At extreme heights, keep every item reachable through the outer scrollbar. */
+@media(max-height:280px){.sidebar{overflow-y:auto;overscroll-behavior-y:contain;}.sidebar-content{flex:none;overflow:visible;}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
 
 }
